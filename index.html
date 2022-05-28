@@ -3,20 +3,26 @@
 <head>
 <title>Rylstonia</title>
 <style>
+	body, html {
+		padding: 0;
+		margin:  0;
+	}
 	#canvas {
 		/* Firefox */
 		image-rendering: crisp-edges;
 		/* Chromium + Safari */
 		image-rendering: pixelated;
 
-		width: 640px;
-		height: 400px;
+		width:  100%;
+		height:  100vh;
 		cursor: none;
+		margin:  0;
+		display: block;
 	}
 </style>
 </head>
 <body>
-<canvas id="canvas" width="640" height="400"></canvas>
+<canvas id="canvas"></canvas>
 <script>
 var canvas = document.getElementById("canvas");
 var ctx = canvas.getContext("2d");
@@ -27,6 +33,8 @@ function main() {
 	var frameTime = 33; // 30 fps
 
 	function tick() {
+		sw = ctx.canvas.width = Math.floor(canvas.getBoundingClientRect().width / 2)
+		sh = ctx.canvas.height = Math.floor(canvas.getBoundingClientRect().height / 2)
 		var t0 = window.performance.now();
 		draw();
 		var t1 = window.performance.now();
@@ -172,7 +180,6 @@ function drawTextWrapped(x, y, w, text) {
 	var lines = text.split("\n")
 	lines.forEach(function(line) {
 		var words = line.split(" ");
-		console.log(words);
 		words.forEach(function(word) {
 			if(cx + word.length > w) {
 				cx = 0
@@ -365,7 +372,7 @@ function draw() {
 	clearKeyEvents()
 	clearMouseEvents()
 
-	//drawTextWrapped(10, 10, 40, '"A CHICK, NAMED PEPPER!" Esther laughed. It was just after sundown on Saturday and the cold of night was quickly rushing into the valley. The golden elm tree in Esther\'s backyard was hanging on to its last remaining leaves with fading strength and would soon succumb entirely to the inexorable march of Autumn into Winter.'.toUpperCase())	
+	//drawTextWrapped(10, 10, 40, '"A CHICK, NAMED PEPPER!" Esther laughed. It was just after sundown on Saturday and the cold of night was quickly rushing into the valley. The golden elm tree in Esther\'s backyard was hanging on to its last remaining leaves with fading strength and would soon succumb to Winter.'.toUpperCase())	
 
 	// var x = Math.floor(sw / 2 + Math.random() * 10);
 	// var y = Math.floor(sh / 2 + Math.random() * 10);
