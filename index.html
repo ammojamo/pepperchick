@@ -1,11 +1,381 @@
+<!DOCTYPE html>
 <html>
 <head>
-<title>A Chick named Pepper</title>
+<title>Rylstonia</title>
+<style>
+	#canvas {
+		/* Firefox */
+		image-rendering: crisp-edges;
+		/* Chromium + Safari */
+		image-rendering: pixelated;
+
+		width: 640px;
+		height: 400px;
+		cursor: none;
+	}
+</style>
 </head>
 <body>
-<h1>Hello World</h1>
+<canvas id="canvas" width="640" height="400"></canvas>
 <script>
-// TODO
+var canvas = document.getElementById("canvas");
+var ctx = canvas.getContext("2d");
+var sw = canvas.width;
+var sh = canvas.height;
+
+function main() {
+	var frameTime = 33; // 30 fps
+
+	function tick() {
+		var t0 = window.performance.now();
+		draw();
+		var t1 = window.performance.now();
+		var delay = Math.max(0, frameTime - (t1 - t0));
+		setTimeout(tick, delay);
+	}
+
+	onLoadAllResources(tick) // start after all resources loaded
+}
+
+// BEGIN: Resource loading
+
+var resourceCount = 0
+var loadedResourcesCount = 0
+var onLoadCallbacks = []
+
+function loadCallback() {
+	resourceCount++
+	return function() {
+		loadedResourcesCount++
+		if(loadedResourcesCount == resourceCount) {
+			onLoadCallbacks.forEach(f => f())
+		}
+	}
+}
+
+function onLoadAllResources(callback) {
+	if(loadedResourcesCount == resourceCount) {
+		callback()
+	} else {
+		onLoadCallbacks.push(callback)
+	}
+}
+
+function loadImage(src) {
+	var im = new Image()
+	im.addEventListener('load', loadCallback())
+	im.src = src
+	return im
+}
+
+// END: Resource loading
+
+// BEGIN: Key events
+
+var keyEvents = [];
+var keyDowns = {};
+window.addEventListener('keydown', function(evt) {
+	keyEvents.push(evt);
+	keyDowns[evt.key] = true;
+})
+window.addEventListener('keyup', function(evt) {
+	keyEvents.push(evt);
+})
+
+function clearKeyEvents() {
+	keyEvents = [];
+	keyDowns = {};
+}
+
+// END: Key events
+
+// BEGIN: Mouse events
+
+var mouseX = 0
+var mouseY = 0
+var mouseWentDown = false
+var mouseDown = false
+var mouseWentUp = false
+
+function updateMousePosition(evt) {
+	var rect = canvas.getBoundingClientRect()
+	var x = evt.clientX - rect.left
+	var y = evt.clientY - rect.top
+	mouseX = Math.round(x * sw / rect.width) - 1
+	mouseY = Math.round(y * sh / rect.height) - 1
+}
+
+window.addEventListener('mousemove', function(evt) {
+	updateMousePosition(evt)
+})
+
+window.addEventListener('mouseup', function(evt) {
+	updateMousePosition(evt)
+	mouseWentUp = true
+	mouseDown = false
+})
+
+window.addEventListener('mousedown', function(evt) {
+	updateMousePosition(evt)
+	mouseWentDown = true
+	mouseDown = true
+})
+
+function clearMouseEvents() {
+	mouseWentUp = false
+	mouseWentDown = false
+}
+
+function mouseInside(x, y, w, h) {
+	return mouseX >= x && mouseX < (x + w) && mouseY >= y && mouseY < (y + h)
+}
+
+// END: Mouse events
+
+// BEGIN: Text drawing
+
+var fontDataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAwCAYAAAAGlsrkAAABvElEQVRYR71X7RLCIAxz7//Qes7BxZL0gzH8o+MYadOmweP1+7yv78M8fx/bWnZfO+s66nx/WGuLCLhyrYF/gTGBHk0VmB3YDh9ArowpcDuoUYvU2KBwL4IgMNKMJeqlm6V1WcZVqhmtU1QzYEvX3a4eaow12/bb6pY1ktc0rHFUw03LqYH8HQADJwraBfa6tQrMMu+ltHJCYKvtCjAbtTJjnNcqWjaVbECe1GTG0UsWOLufzupKZyptWwfz5sJZBtahW7RcndWemTCDkWvUpI2NZedyaZ+XMUZbZSY0nejASGKRb8txGwGjRlMzOChTP+NJYHcIVYFZV1tJsvIMQezQMR2znh/bKRXVeImcmBM9Cow1VIZQ6XTJgqJ6dcZoRCcm60h1gX+Uau+64ukSk8BpZsduZ7JKtboOWeDUrN7ivxYkcifUsrpvZQIfulsBM1ltBXbvxplU1R7bXNH1Zdlsn9XxnWTPdxXwnXqmgvIue1nv9ViTQSyrGSCk2FL/AIahbu5SLJMUoGfy1pkykiqBsubKZOL5dKqxMsAqE2bwadAIOAJtQGWaI+AM7dPgnpyqtSxl/oSOU7X+AMbFNkAzMbmAAAAAAElFTkSuQmCC'
+var fontImage = loadImage(fontDataUri)
+var fontW = 5
+var fontH = 8
+
+function drawChar(x, y, char) {
+	char = char.toUpperCase()
+	var i;
+	if(char >= 'A' && char <= 'Z') {
+		i = char.charCodeAt(0) - 65
+	} else {
+		i = '!.,"\'?><'.indexOf(char)
+		if(i >= 0) {
+			i += 26
+		}
+	}
+
+	if(i >= 0) {
+		var sx = (i * fontW) % fontImage.width
+		var sy = Math.floor(i * fontW / fontImage.width) * fontH
+
+		ctx.drawImage(fontImage, sx, sy, fontW, fontH, x, y, fontW, fontH)
+	}
+}
+
+function drawText(x, y, text) {
+	for(var i = 0; i < text.length; i++) {
+		drawChar(x + i * fontW, y, text[i])
+	}
+}
+
+function drawTextWrapped(x, y, w, text) {
+	var cx = 0
+	var cy = 0
+
+	var lines = text.split("\n")
+	lines.forEach(function(line) {
+		var words = line.split(" ");
+		console.log(words);
+		words.forEach(function(word) {
+			if(cx + word.length > w) {
+				cx = 0
+				cy++
+			}
+			drawText(x + cx * fontW, y + cy * (fontH + 2), word)
+			cx += (word.length + 1)
+		});
+		cx = 0
+		cy++
+	})
+}
+
+// END: Text drawing
+
+// BEGIN: Sprite map
+
+var spriteDataUri='data:image/png;base64,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'
+
+var spriteImage = loadImage(spriteDataUri)
+var spriteW = 32
+var spriteH = 32
+
+var spriteIndexMask = 0xfff
+var spriteFlipMask = 1 << 15
+
+function drawSprite(x, y, sid) {
+	var i = sid & spriteIndexMask
+	var sx = (spriteW * i) % spriteImage.width
+	var sy = Math.floor(spriteW * i / spriteImage.width) * spriteH
+
+	if(sid & spriteFlipMask) {
+		ctx.save()
+		ctx.scale(-1, 1)
+		ctx.drawImage(spriteImage, sx, sy, spriteW, spriteH, -(x + spriteW), y, spriteW, spriteH)
+		ctx.restore()
+	} else {
+		ctx.drawImage(spriteImage, sx, sy, spriteW, spriteH, x, y, spriteW, spriteH)
+	}
+}
+
+// END: Sprite map
+
+var screen = "home"
+var selectedMenuItem = 0;
+
+function drawMenuItem(i, text) {
+	var y = 8 + i * (fontH + 2)
+	var x = 8
+
+	if(selectedMenuItem == i) {
+		drawText(x, y, ">")
+	}
+
+	drawText(x + fontW * 2, y, text)
+}
+
+var state = {}
+
+try {
+	state.mapEditor = JSON.parse(localStorage.mapEditor)
+} catch(e) {}
+
+function draw() {
+	ctx.fillStyle = '#f8f8f8'
+	ctx.fillRect(0, 0, sw, sh)
+
+	if(screen == "home") {
+		drawMenuItem(0, "Map editor")
+		drawMenuItem(1, "Blerg")
+
+		if(keyDowns['ArrowUp'] && selectedMenuItem > 0) {
+			selectedMenuItem--
+		}
+		if(keyDowns['ArrowDown'] && selectedMenuItem < 1) {
+			selectedMenuItem++
+		}
+		if(keyDowns['Enter']) {
+			if(selectedMenuItem == 0) {
+				screen = 'map-editor'
+			}
+		}
+	}
+
+	if(screen == "map-editor") {
+		drawText(8, 8, "MAP EDITOR")
+		if(keyDowns['Escape']) {
+			screen = 'home'
+		}
+
+		var sideBarCols = 2
+		var sideBarWidth = (spriteW + 1) * sideBarCols + 1
+
+		var mw = sw - sideBarWidth
+		var mh = sh
+
+		if(!state.mapEditor) {
+			state.mapEditor = {
+				mx: Math.floor(-mw / 2),
+				my: Math.floor(-mh / 2),
+				tiles: {},
+				selectedSprite: 0,
+				spriteMask: 0
+			}
+		}
+		var s = state.mapEditor
+
+		if(keyDowns['h']) {
+			s.spriteMask ^= spriteFlipMask
+		}
+
+		var flipMask = 1 << 16
+		var spriteMask = 0xfff
+
+		// Draw sidebar
+		ctx.fillStyle = "#333"
+		ctx.fillRect(0, 0, sideBarWidth, sh)
+		var spriteCount = (spriteImage.width * spriteImage.height) / (spriteW * spriteH)
+		for(var i = 0; i < spriteCount; i++) {
+			var c = i % sideBarCols
+			var r = Math.floor(i / sideBarCols)
+			var x = c * (spriteW + 1)
+			var y = r * (spriteH + 1)
+
+			if(mouseInside(x, y, spriteW + 1, spriteH + 1)) {
+				if(mouseWentDown) {
+					s.selectedSprite = i
+				} else {
+					ctx.fillStyle="#aaa"
+					ctx.fillRect(x, y, spriteW + 2, spriteH + 2)
+				}
+			}
+
+			if(i == s.selectedSprite) {
+				ctx.fillStyle="#fff"
+				ctx.fillRect(x, y, spriteW + 2, spriteH + 2)
+			}
+
+			drawSprite(x + 1, y + 1, i | s.spriteMask)
+		}
+
+		// Draw map
+		ctx.save()
+		ctx.rect(sideBarWidth, 0, mw, mh)
+		ctx.clip()
+		ctx.translate(sideBarWidth, 0)
+
+		var tx0 = Math.floor(s.mx / spriteW)
+		var tx1 = Math.floor((s.mx + mw) / spriteW)
+		var ty0 = Math.floor(s.my / spriteH)
+		var ty1 = Math.floor((s.my + mh) / spriteH)
+
+		for(var tx = tx0; tx <= tx1; tx++) {
+			for(var ty = ty0; ty <= ty1; ty++) {
+				var x = tx * spriteW - s.mx
+				var y = ty * spriteH - s.my
+				var k = tx + "_" + ty
+
+				if(s.tiles[k] !== undefined) {
+					drawSprite(x, y, s.tiles[k])
+				} else {
+					ctx.strokeStyle="#bbb"
+					ctx.lineWidth = 1
+					ctx.strokeRect(x + 0.5, y + 0.5, spriteW - 1, spriteH - 1)
+				}
+
+				if(mouseInside(x + sideBarWidth, y, spriteW, spriteH)) {
+					ctx.save()
+					ctx.globalAlpha = 0.4
+					drawSprite(x, y, s.selectedSprite | s.spriteMask)
+					ctx.restore()
+
+					if(mouseDown) {
+						s.tiles[k] = s.selectedSprite | s.spriteMask
+						localStorage.mapEditor = JSON.stringify(s)
+					}
+				}
+			}
+		}
+
+		ctx.restore()
+	}
+
+	ctx.save()
+	ctx.fillStyle = "#fff"
+	ctx.globalCompositeOperation="difference"
+	ctx.fillRect(mouseX - 1, mouseY - 1, 3, 3)
+	ctx.restore()
+
+	clearKeyEvents()
+	clearMouseEvents()
+
+	//drawTextWrapped(10, 10, 40, '"A CHICK, NAMED PEPPER!" Esther laughed. It was just after sundown on Saturday and the cold of night was quickly rushing into the valley. The golden elm tree in Esther\'s backyard was hanging on to its last remaining leaves with fading strength and would soon succumb entirely to the inexorable march of Autumn into Winter.'.toUpperCase())	
+
+	// var x = Math.floor(sw / 2 + Math.random() * 10);
+	// var y = Math.floor(sh / 2 + Math.random() * 10);
+
+	// ctx.strokeText('A Chick named Pepper!!'.toUpperCase(), x, y)
+
+}
+
+main();
+
 </script>
 </body>
 </html>
