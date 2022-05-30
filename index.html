@@ -29,17 +29,37 @@ var ctx = canvas.getContext("2d");
 var sw = canvas.width;
 var sh = canvas.height;
 
+var lastFrameTime = 0
+var dt = 0
+var scale = 1
+
 function main() {
+
+	console.log(`
+RYLSTONIA MAP EDITOR
+====================
+
+Keyboard shortcuts
+------------------
+
+            H - Flip sprite horizontally
+            G - Show/hide grid
+SHIFT + click - Fill surrounding area
+
+		`)
+
 	var frameTime = 33; // 30 fps
 
 	function tick() {
-		sw = ctx.canvas.width = Math.floor(canvas.getBoundingClientRect().width / 2)
-		sh = ctx.canvas.height = Math.floor(canvas.getBoundingClientRect().height / 2)
-		var t0 = window.performance.now();
+		sw = ctx.canvas.width = Math.floor(canvas.getBoundingClientRect().width / scale)
+		sh = ctx.canvas.height = Math.floor(canvas.getBoundingClientRect().height / scale)
+		var t0 = window.performance.now()
+		dt = t0 - lastFrameTime
 		draw();
-		var t1 = window.performance.now();
+		var t1 = window.performance.now()
 		var delay = Math.max(0, frameTime - (t1 - t0));
 		setTimeout(tick, delay);
+		lastFrameTime = t0;
 	}
 
 	onLoadAllResources(tick) // start after all resources loaded
@@ -80,19 +100,23 @@ function loadImage(src) {
 
 // BEGIN: Key events
 
-var keyEvents = [];
-var keyDowns = {};
+var keyEvents = []
+var keyWentDown = {}
+var keyDown = {}
+
 window.addEventListener('keydown', function(evt) {
 	keyEvents.push(evt);
-	keyDowns[evt.key] = true;
+	keyWentDown[evt.key] = true
+	keyDown[evt.key] = true
 })
 window.addEventListener('keyup', function(evt) {
-	keyEvents.push(evt);
+	keyEvents.push(evt)
+	keyDown[evt.key] = false
 })
 
 function clearKeyEvents() {
-	keyEvents = [];
-	keyDowns = {};
+	keyEvents = []
+	keyWentDown = {}
 }
 
 // END: Key events
@@ -105,6 +129,10 @@ var mouseWentDown = false
 var mouseDown = false
 var mouseWentUp = false
 
+var rightMouseWentDown = false
+var rightMouseDown = false
+var rightMouseWentUp = false
+
 function updateMousePosition(evt) {
 	var rect = canvas.getBoundingClientRect()
 	var x = evt.clientX - rect.left
@@ -113,25 +141,44 @@ function updateMousePosition(evt) {
 	mouseY = Math.round(y * sh / rect.height) - 1
 }
 
-window.addEventListener('mousemove', function(evt) {
-	updateMousePosition(evt)
-})
+window.addEventListener('mousemove', updateMousePosition)
 
-window.addEventListener('mouseup', function(evt) {
+function handleMouseUp(evt) {
 	updateMousePosition(evt)
-	mouseWentUp = true
-	mouseDown = false
-})
+	if(evt.button == 0) {
+		mouseWentUp = true
+		mouseDown = false
+	} else if(evt.button == 2) {
+		rightMouseWentUp = true
+		rightMouseDown = false
+	}	
+}
 
-window.addEventListener('mousedown', function(evt) {
+window.addEventListener('mouseup', handleMouseUp)
+
+function handleMouseDown(evt) {
 	updateMousePosition(evt)
-	mouseWentDown = true
-	mouseDown = true
+	if(evt.button == 0) {
+		mouseWentDown = true
+		mouseDown = true
+	} else if(evt.button == 2) {
+		rightMouseWentDown = true
+		rightMouseDown = true
+	}
+}
+
+window.addEventListener('mousedown', handleMouseDown)
+
+canvas.addEventListener('contextmenu', function(evt) {
+	evt.preventDefault()
+	return false
 })
 
 function clearMouseEvents() {
 	mouseWentUp = false
 	mouseWentDown = false
+	rightMouseWentUp = false
+	rightMouseWentDown = false
 }
 
 function mouseInside(x, y, w, h) {
@@ -142,7 +189,7 @@ function mouseInside(x, y, w, h) {
 
 // BEGIN: Text drawing
 
-var fontDataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAwCAYAAAAGlsrkAAABvElEQVRYR71X7RLCIAxz7//Qes7BxZL0gzH8o+MYadOmweP1+7yv78M8fx/bWnZfO+s66nx/WGuLCLhyrYF/gTGBHk0VmB3YDh9ArowpcDuoUYvU2KBwL4IgMNKMJeqlm6V1WcZVqhmtU1QzYEvX3a4eaow12/bb6pY1ktc0rHFUw03LqYH8HQADJwraBfa6tQrMMu+ltHJCYKvtCjAbtTJjnNcqWjaVbECe1GTG0UsWOLufzupKZyptWwfz5sJZBtahW7RcndWemTCDkWvUpI2NZedyaZ+XMUZbZSY0nejASGKRb8txGwGjRlMzOChTP+NJYHcIVYFZV1tJsvIMQezQMR2znh/bKRXVeImcmBM9Cow1VIZQ6XTJgqJ6dcZoRCcm60h1gX+Uau+64ukSk8BpZsduZ7JKtboOWeDUrN7ivxYkcifUsrpvZQIfulsBM1ltBXbvxplU1R7bXNH1Zdlsn9XxnWTPdxXwnXqmgvIue1nv9ViTQSyrGSCk2FL/AIahbu5SLJMUoGfy1pkykiqBsubKZOL5dKqxMsAqE2bwadAIOAJtQGWaI+AM7dPgnpyqtSxl/oSOU7X+AMbFNkAzMbmAAAAAAElFTkSuQmCC'
+var fontDataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAABACAYAAAANtMclAAACV0lEQVRYR8VYW3KDQAxr7n/odkLZHeGVbJkA6U8aBlZ+STJ5/fz//e6fr/D9/XVcc+8bZ+1Hbc8v18ZFBLzy2gB/A2MCM5ouMDtwHL6A7BlT4HHQKC2WJgaF9yIIAmOZsUWzdWfLelnG3VKzsp4qNQOO5fp0qpceY88e+z/ylg1SNjRscNTAnabTADkcAIJTBZ0CZ9PaBWaZz1ZGOiFw5HYHmEmtzBj1WkXLVCkGlFFNZlw9FIHd+6lWdyZTcTs6WKYLWxvYhD7C5a5WZ2bCDEZeoyYdbMzV5dZ9WcYYbbcypelUB1YUq3xbym0FjBy1NLho0zzjTuBUhLrAbKojJVl7liCe4DGV2cyPo0pVPb6ETsyJbgXGHipD6Ey6rIIq9dUZoxFtmGwi1QJ/a6mzdSXjJSaBahZld1ayW2q1DkVgS6sf8d8IUrkTclntW07gy3QrYEarR4HT3dhJVd0Th6taXy7T9rM8/iTZ7VkF/Ek/raCyZc/13qxqMojLegYIVrXUG8Ai6mGXYplYgJnJR2dyKNUCZcPlZJL5tDVYDrDKhBm8DVoBV6ADqF3mCtgp+2nwjE7dXrYyv4PHVq87PGbcZqVmq8/ybLbQl+vLjoqvLFEDVGDbTxEVNVjv4jNRZCqBWn72dwS/WnOxxxjgIZiqx2r4sowV8KF1CjgrL/bR2qGDwWxnd/zYnWp132EIv8pji3eCOlkVUiFxdi5GN/eaBHeGywU5rdXMFKKDYVuctxBULsx+/oiaOZGjXEoqy1I7wJViVdJ7CEK9/VtcTCa9tMav8fgPud+WUKTdyegAAAAASUVORK5CYII='
 var fontImage = loadImage(fontDataUri)
 var fontW = 5
 var fontH = 8
@@ -153,7 +200,7 @@ function drawChar(x, y, char) {
 	if(char >= 'A' && char <= 'Z') {
 		i = char.charCodeAt(0) - 65
 	} else {
-		i = '!.,"\'?><'.indexOf(char)
+		i = '!.,"\'?><  1234567890:-'.indexOf(char)
 		if(i >= 0) {
 			i += 26
 		}
@@ -223,7 +270,7 @@ function drawSprite(x, y, sid) {
 
 // END: Sprite map
 
-var screen = "home"
+var screen = "map-editor"
 var selectedMenuItem = 0;
 
 function drawMenuItem(i, text) {
@@ -251,13 +298,13 @@ function draw() {
 		drawMenuItem(0, "Map editor")
 		drawMenuItem(1, "Blerg")
 
-		if(keyDowns['ArrowUp'] && selectedMenuItem > 0) {
+		if(keyWentDown['ArrowUp'] && selectedMenuItem > 0) {
 			selectedMenuItem--
 		}
-		if(keyDowns['ArrowDown'] && selectedMenuItem < 1) {
+		if(keyWentDown['ArrowDown'] && selectedMenuItem < 1) {
 			selectedMenuItem++
 		}
-		if(keyDowns['Enter']) {
+		if(keyWentDown['Enter']) {
 			if(selectedMenuItem == 0) {
 				screen = 'map-editor'
 			}
@@ -265,8 +312,7 @@ function draw() {
 	}
 
 	if(screen == "map-editor") {
-		drawText(8, 8, "MAP EDITOR")
-		if(keyDowns['Escape']) {
+		if(keyWentDown['Escape']) {
 			screen = 'home'
 		}
 
@@ -276,28 +322,30 @@ function draw() {
 		var mw = sw - sideBarWidth
 		var mh = sh
 
+		var spriteCount = (spriteImage.width * spriteImage.height) / (spriteW * spriteH)
+
 		if(!state.mapEditor) {
 			state.mapEditor = {
 				mx: Math.floor(-mw / 2),
 				my: Math.floor(-mh / 2),
 				tiles: {},
 				selectedSprite: 0,
-				spriteMask: 0
+				spriteMask: 0,
+				showGrid: false
 			}
 		}
 		var s = state.mapEditor
 
-		if(keyDowns['h']) {
+		if(keyWentDown['h']) {
 			s.spriteMask ^= spriteFlipMask
 		}
-
-		var flipMask = 1 << 16
-		var spriteMask = 0xfff
+		if(keyWentDown['g']) {
+			s.showGrid = !s.showGrid
+		}
 
 		// Draw sidebar
 		ctx.fillStyle = "#333"
 		ctx.fillRect(0, 0, sideBarWidth, sh)
-		var spriteCount = (spriteImage.width * spriteImage.height) / (spriteW * spriteH)
 		for(var i = 0; i < spriteCount; i++) {
 			var c = i % sideBarCols
 			var r = Math.floor(i / sideBarCols)
@@ -322,6 +370,7 @@ function draw() {
 		}
 
 		// Draw map
+		var panButtonWidth = spriteW
 		ctx.save()
 		ctx.rect(sideBarWidth, 0, mw, mh)
 		ctx.clip()
@@ -332,6 +381,20 @@ function draw() {
 		var ty0 = Math.floor(s.my / spriteH)
 		var ty1 = Math.floor((s.my + mh) / spriteH)
 
+		function drawGrid() {
+			for(var tx = tx0; tx <= tx1; tx++) {
+				var x = tx * spriteW - s.mx
+				ctx.fillStyle = (tx % 10) ? "#bbb" : (tx % 100) ? "#888" : "#333"
+				ctx.fillRect(x - 1, ty0 * spriteH - s.my, 2, mh + spriteH)
+			}
+			for(var ty = ty0; ty <= ty1; ty++) {
+				var y = ty * spriteH - s.my
+				ctx.fillStyle = (ty % 10) ? "#bbb" : (ty % 100) ? "#888" : "#333"
+				ctx.fillRect(tx0 * spriteW - s.mx, y - 1, mw + spriteW, 2)
+			}
+		}
+		drawGrid()
+
 		for(var tx = tx0; tx <= tx1; tx++) {
 			for(var ty = ty0; ty <= ty1; ty++) {
 				var x = tx * spriteW - s.mx
@@ -341,25 +404,74 @@ function draw() {
 				if(s.tiles[k] !== undefined) {
 					drawSprite(x, y, s.tiles[k])
 				} else {
-					ctx.strokeStyle="#bbb"
-					ctx.lineWidth = 1
-					ctx.strokeRect(x + 0.5, y + 0.5, spriteW - 1, spriteH - 1)
+					// ctx.strokeStyle="#bbb"
+					// ctx.lineWidth = 1
+					// ctx.strokeRect(x + 0.5, y + 0.5, spriteW - 1, spriteH - 1)
 				}
 
-				if(mouseInside(x + sideBarWidth, y, spriteW, spriteH)) {
+				if(mouseInside(x + sideBarWidth, y, spriteW, spriteH) &&
+					mouseInside(sideBarWidth + panButtonWidth, panButtonWidth, sw - sideBarWidth - panButtonWidth * 2, sh - panButtonWidth * 2)) {
 					ctx.save()
 					ctx.globalAlpha = 0.4
 					drawSprite(x, y, s.selectedSprite | s.spriteMask)
 					ctx.restore()
 
-					if(mouseDown) {
-						s.tiles[k] = s.selectedSprite | s.spriteMask
+					if(mouseDown || mouseWentDown) {
+						if(keyDown['Shift']) {
+							function flood(fx, fy) {
+								var k = fx + "_" + fy;
+								if(!s.tiles[k] && (fx - tx) * (fx - tx) + (fy - ty) * (fy - ty) < 49) {
+									s.tiles[k] = s.selectedSprite | s.spriteMask
+									flood(fx + 1, fy)
+									flood(fx - 1, fy)
+									flood(fx, fy + 1)
+									flood(fx, fy - 1)
+								}
+							}
+							flood(tx, ty)
+						} else {
+							s.tiles[k] = s.selectedSprite | s.spriteMask
+						}
+						localStorage.mapEditor = JSON.stringify(s)
+					} else if(rightMouseDown || rightMouseWentDown) {
+						delete s.tiles[k]
 						localStorage.mapEditor = JSON.stringify(s)
 					}
 				}
 			}
 		}
 
+		if(s.showGrid) {
+			ctx.save()
+			ctx.globalAlpha = 0.4
+			drawGrid()
+			ctx.restore()
+		}
+
+		drawText(8, sh - 18, "X: " + Math.floor((mouseX + s.mx - sideBarWidth) / spriteW))
+		drawText(8, sh - 9, "Y: " + Math.floor((mouseY + s.my) / spriteH))
+
+		ctx.restore()
+
+		// Panning
+		ctx.save()
+		ctx.fillStyle="#000"
+		ctx.globalAlpha = 0.4
+
+		function panButton(x, y, w, h, dx, dy) {
+			if(mouseInside(x, y, w, h)) {
+				ctx.fillRect(x, y, w, h)
+				if(mouseDown) {
+					s.mx = Math.floor(s.mx + dx * dt * 0.2)
+					s.my = Math.floor(s.my + dy * dt * 0.2)
+				}
+			}
+		}
+
+		panButton(sideBarWidth, 0, panButtonWidth, sh, -1, 0)
+		panButton(sw - panButtonWidth, 0, panButtonWidth, sh, 1, 0)
+		panButton(sideBarWidth, 0, sw - sideBarWidth, panButtonWidth, 0, -1)
+		panButton(sideBarWidth, sh - panButtonWidth, sw - sideBarWidth, panButtonWidth, 0, 1)
 		ctx.restore()
 	}
 
@@ -381,7 +493,7 @@ function draw() {
 
 }
 
-main();
+main()
 
 </script>
 </body>
