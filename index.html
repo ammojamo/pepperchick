@@ -297,8 +297,8 @@ function drawSprite(x, y, sid) {
 	}
 
 	// Overlay layer
-	if(sid >> 16) {
-		drawSprite(x, y, sid >> 16)
+	if(sid >>> 16) {
+		drawSprite(x, y, sid >>> 16)
 	}
 }
 
@@ -476,14 +476,14 @@ function draw() {
 							flood(tx, ty)
 						} else {
 							if(spriteHasAlpha[s.selectedSprite]) {
-								s.tiles[k] |= (s.selectedSprite | s.spriteMask) << 16
+								s.tiles[k] = (s.tiles[k] & 0xffff) | ((s.selectedSprite | s.spriteMask) << 16)
 							} else {
 								s.tiles[k] = (s.selectedSprite | s.spriteMask)
 							}
 						}
 						localStorage.mapEditor = JSON.stringify(s)
 					} else if(rightMouseDown || rightMouseWentDown) {
-						if(s.tiles[k] && s.tiles[k] >> 16) {
+						if(s.tiles[k] && s.tiles[k] >>> 16) {
 							s.tiles[k] = s.tiles[k] & 0xffff
 						} else {
 							delete s.tiles[k]
